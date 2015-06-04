@@ -101,22 +101,22 @@ int main(void)
 	prvSetupHardware();
 
 	/* LED1 toggle thread */
-	xTaskCreate(vLEDTask1, (signed char * ) "vTaskLed1",
+	xTaskCreate(vLEDTask1, "vTaskLed1",
 			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
 			(xTaskHandle *) NULL);
 
 	/* LED2 toggle thread */
-	xTaskCreate(vLEDTask2, (signed char * ) "vTaskLed2",
+	xTaskCreate(vLEDTask2, "vTaskLed2",
 			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
 			(xTaskHandle *) NULL);
 
 	/* LED0 toggle thread */
-	xTaskCreate(vLEDTask0, (signed char * ) "vTaskLed0",
+	xTaskCreate(vLEDTask0, "vTaskLed0",
 			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
 			(xTaskHandle *) NULL);
 
 	/* LED6 toggle thread */
-	xTaskCreate(vLEDTask3, (signed char * ) "vTaskLed3",
+	xTaskCreate(vLEDTask3, "vTaskLed3",
 			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
 			(xTaskHandle *) NULL);
 
