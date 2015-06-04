@@ -32,10 +32,19 @@
 #ifndef __FREERTOSCOMMONHOOKS_H_
 #define __FREERTOSCOMMONHOOKS_H_
 
+#include <stdint.h>
+
 /** @ingroup FreeRTOS_COMMON
  * @{
  */
 
+/**
+ * @brief	Delay for the specified number of milliSeconds
+ * @param	ms	: Delay in milliSeconds
+ * @return	Nothing
+ * @note	Delays the specified number of milliSeoconds using a task delay
+ */
+void FreeRTOSDelay(uint32_t ms);
 
 /**
  * @brief	FreeRTOS malloc fail hook
@@ -66,6 +75,7 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char *pcTaskName);
  * @note	This just returns to the caller.
  */
 void vApplicationTickHook(void);
+
 
 /**
  * @}

@@ -33,7 +33,6 @@
 #include "task.h"
 #include "FreeRTOSCommonHooks.h"
 
-#include "chip.h"
 
 /*****************************************************************************
  * Private types/enumerations/variables
@@ -51,6 +50,14 @@
  * Public functions
  ****************************************************************************/
 
+/* Delay for the specified number of milliSeconds */
+void FreeRTOSDelay(uint32_t ms)
+{
+	portTickType xDelayTime;
+
+	xDelayTime = xTaskGetTickCount();
+	vTaskDelayUntil(&xDelayTime, ms);
+}
 
 /* FreeRTOS malloc fail hook */
 void vApplicationMallocFailedHook(void)
@@ -81,5 +88,6 @@ void vApplicationStackOverflowHook(xTaskHandle pxTask, signed char *pcTaskName)
 
 /* FreeRTOS application tick hook */
 void vApplicationTickHook(void)
-{
-}
+{}
+
+
