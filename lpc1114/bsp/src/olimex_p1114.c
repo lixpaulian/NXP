@@ -11,7 +11,23 @@
 #include <stdio.h>
 #include "lpc_types.h"
 #include "chip.h"
+#include "FreeRTOS.h"
+#include "queue.h"
 #include "olimex_p1114.h"
+
+/* CLI serial queues size */
+#define txQueueSize 80
+#define rxQueueSize 80
+
+/* USART transmit and receive queues */
+QueueHandle_t txQueue;
+QueueHandle_t rxQueue;
+
+volatile int g_Uart_Error = 0;
+
+/* System oscillator rate and clock rate on the CLKIN pin */
+const uint32_t OscRateIn = HSE_VALUE;
+const uint32_t ExtRateIn = 0;
 
 /* IOCON pin definitions for pin multiplexing */
 typedef struct
@@ -19,10 +35,6 @@ typedef struct
 	uint32_t pin :8; /* Pin number */
 	uint32_t modefunc :24; /* Function and mode */
 } pinmux_t;
-
-/* System oscillator rate and clock rate on the CLKIN pin */
-const uint32_t OscRateIn = HSE_VALUE;
-const uint32_t ExtRateIn = 0;
 
 /**
  *  @brief	Pin multiplexing table, only items that need changing from their default
@@ -77,26 +89,92 @@ void Board_Init(void)
 }
 
 /**
- * @brief	Sends a character on the UART.
- * @param	ch: the character to be sent.
+ * @brief	Configure timer32_0 to count up every 100 us; this is used by
+ * @brief	FreeRTOS statistics functions.
  */
-void UARTPutChar(char ch)
+void vMainConfigureTimerForRunTimeStats(void)
 {
-	Chip_UART_SendBlocking(LPC_USART, &ch, 1);
+	/* Initialize 32-bit timer 0 clock */
+	Chip_TIMER_Init(LPC_TIMER32_0);
+
+	/* Resets the timer terminal and prescale counts to 0 */
+	Chip_TIMER_Reset(LPC_TIMER32_0);
+
+	/* Setup prescale value to result in a count every 100 us */
+	Chip_TIMER_PrescaleSet(LPC_TIMER32_0, 5000);
+
+	/* Start timer */
+	Chip_TIMER_Enable(LPC_TIMER32_0);
 }
 
 /**
- * @brief	Gets a characters from the UART.
- * @return	The character from the UART if any is received, EOF otherwise.
+ * @brief	Get the current value of the timer32_0.
+ * @return	The current value of the timer3_0.
  */
-int UARTGetChar(void)
+uint32_t ulMainGetRunTimeCounterValue(void)
 {
-	uint8_t data;
+	return Chip_TIMER_ReadCount(LPC_TIMER32_0);
+}
 
-	if (Chip_UART_Read(LPC_USART, &data, 1) == 1)
-		return (int) data;
+/**
+ * @brief	Wait until a byte is available in the FIFO of serial1.
+ * @param	timeout: maximum time to wait for a byte. If portMAX_DELAY
+ * 			is specified, the function will block.
+ * @retval the character received or: EOF (-1) if none (i.e. timeout),
+ * 			UART_ERROR (-2) if an UART error occurred.
+ */
+int getCharSerial(int timeout)
+{
+	int value = 0;
 
-	return EOF;
+	if ((xQueueReceive(rxQueue, &value, timeout) != pdPASS))
+		value = EOF;
+	if (g_Uart_Error)
+	{
+		value = UART_ERROR;
+		g_Uart_Error = FALSE;
+	}
+	return value;
+}
+
+/**
+ * @brief	Send a char via serial1 if it's not busy.
+ * @param	buff: pointer on a buffer containing the characters to be sent.
+ * @param	len: number of characters to be sent.
+ * @retval	Number of characters sent.
+ */
+int sendCharSerial(uint8_t *buff, int len)
+{
+	int	count = 0;
+
+	if (len)
+	{
+		while (len--)
+		{
+			if (xQueueSendToBack(txQueue, buff, MS10_DELAY) == pdPASS)
+			{
+				buff++;
+				count++;
+			}
+			else
+				break;	/* queue full, exit */
+		}
+		if (count)
+			Chip_UART_IntEnable(LPC_USART, UART_IER_THREINT);
+	}
+	return count;
+}
+
+/**
+ * @brief	Test if a character is pending in an input stream.
+ * @retval	TRUE if at least a character is pending, FALSE otherwise.
+ */
+int kbHit(void)
+{
+	unsigned portBASE_TYPE nrItems = 0;
+
+	nrItems = uxQueueMessagesWaiting(rxQueue);
+	return (nrItems != 0);
 }
 
 /**
@@ -220,4 +298,34 @@ static void UART_Init(void)
 	Chip_UART_SetupFIFOS(LPC_USART, (UART_FCR_FIFO_EN | UART_FCR_TRG_LEV2));
 	Chip_UART_TXEnable(LPC_USART);
 }
+
+/**
+ * @brief	Handle UART interrupt.
+ */
+void UART_IRQHandler(void)
+{
+	uint8_t ch;
+	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+
+	/* Handle transmit interrupt if enabled */
+	/* Fill FIFO */
+	if (((Chip_UART_ReadLineStatus(LPC_USART) & UART_LSR_THRE) != 0) &&
+			xQueueReceiveFromISR(txQueue, &ch, &xHigherPriorityTaskWoken) == pdPASS)
+	{
+		Chip_UART_SendByte(LPC_USART, ch);
+	}
+	else
+	/* Disable transmit interrupt if the queue is empty */
+		Chip_UART_IntDisable(LPC_USART, UART_IER_THREINT);
+
+	/* Handle receive interrupt */
+	/* New data will be ignored if not popped in time */
+	while ((Chip_UART_ReadLineStatus(LPC_USART) & UART_LSR_RDR) != 0)
+	{
+		ch = Chip_UART_ReadByte(LPC_USART);
+		xQueueSendToBackFromISR(rxQueue, &ch, &xHigherPriorityTaskWoken);
+	}
+	portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+}
+
 
