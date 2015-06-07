@@ -92,7 +92,7 @@
 #define configTICK_RATE_HZ				( ( portTickType ) 1000 )
 #define configMAX_PRIORITIES			( ( unsigned portBASE_TYPE ) 8 )
 #define configMINIMAL_STACK_SIZE		( ( unsigned short ) 64 )
-#define configTOTAL_HEAP_SIZE			( ( size_t ) (4 * 1024) )
+#define configTOTAL_HEAP_SIZE			( ( size_t ) (4 * 1024) )	/* ignored if heap3.c is used */
 #define configMAX_TASK_NAME_LEN			( 10 )
 #define configUSE_TRACE_FACILITY		1
 #define configUSE_16_BIT_TICKS			0
@@ -109,7 +109,7 @@
 #define configUSE_STATS_FORMATTING_FUNCTIONS 1
 
 /* Co-routine definitions. */
-#define configUSE_CO_ROUTINES 		0
+#define configUSE_CO_ROUTINES 			0
 #define configMAX_CO_ROUTINE_PRIORITIES ( 2 )
 
 /* Software timer definitions. */
