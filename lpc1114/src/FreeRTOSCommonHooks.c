@@ -50,14 +50,6 @@
  * Public functions
  ****************************************************************************/
 
-/* Delay for the specified number of milliSeconds */
-void FreeRTOSDelay(uint32_t ms)
-{
-	portTickType xDelayTime;
-
-	xDelayTime = xTaskGetTickCount();
-	vTaskDelayUntil(&xDelayTime, ms);
-}
 
 /* FreeRTOS malloc fail hook */
 void vApplicationMallocFailedHook(void)
