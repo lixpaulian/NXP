@@ -1,129 +1,106 @@
 /*
- * @brief FreeRTOS Blinky example
+ * main.c
  *
- * @note
- * Copyright(C) NXP Semiconductors, 2012
- * All rights reserved.
+ * Copyright (c) 2015 Lixco Microsystems <lix@paulian.net>
  *
- * @par
- * Software that is described herein is for illustrative purposes only
- * which provides customers with programming information regarding the
- * LPC products.  This software is supplied "AS IS" without any warranties of
- * any kind, and NXP Semiconductors and its licensor disclaim any and
- * all warranties, express or implied, including all implied warranties of
- * merchantability, fitness for a particular purpose and non-infringement of
- * intellectual property rights.  NXP Semiconductors assumes no responsibility
- * or liability for the use of the software, conveys no license or rights under any
- * patent, copyright, mask work right, or any other intellectual property rights in
- * or to any products. NXP Semiconductors reserves the right to make changes
- * in the software without notification. NXP Semiconductors also makes no
- * representation or warranty that such application will be suitable for the
- * specified use without further testing or modification.
+ * Created on: May 30, 2015 (LNP)
  *
- * @par
- * Permission to use, copy, modify, and distribute this software and its
- * documentation is hereby granted, under NXP Semiconductors' and its
- * licensor's relevant copyrights in the software, without fee, provided that it
- * is used in conjunction with NXP Semiconductors microcontrollers.  This
- * copyright, permission, and disclaimer notice must appear in all copies of
- * this code.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
+/* This is a small platform build on an Olimex LPC-P1114 board; it can serve
+ * as a starting point for other projects. The project is build using the
+ * "gnuarmeclipse" plugins (http://gnuarmeclipse.livius.net).
+ *
+ * In this file we start two tasks: a LED blinking task and a serial CLI task
+ * (command line interface). Add your own tasks depending on the application
+ * and of course of the available memory. You can remove the CLI task, or some
+ * or all of its commands and add other commands.
+ */
+
+#include <stdio.h>
 #include "olimex_p1114.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "cli.h"
+
+/* uptime variable */
+volatile uint32_t uptime = 0;
 
 
-/* Sets up system hardware */
-static void prvSetupHardware(void)
-{
-	SystemCoreClockUpdate();
-	Board_Init();
-}
-
-/* LED0 toggle thread */
-static void vLEDTask0(void *pvParameters)
-{
-	(void) pvParameters;
-
-	while (1)
-	{
-		LED_Toggle(LED0);
-		LED_Set(LED3, !LED_Test(LED0));
-		vTaskDelay(configTICK_RATE_HZ / 2);
-	}
-}
-
-/* LED1 toggle thread */
-static void vLEDTask1(void *pvParameters)
+/**
+ * @brief	This task increments the uptime and blinks LED6 and LED7 alternatively.
+ * @param 	pvParameters: not used.
+ */
+static void vLEDTask(void *pvParameters)
 {
 	(void) pvParameters;
 
-	while (1)
-	{
-		LED_Toggle(LED1);
-		LED_Set(LED4, !LED_Test(LED1));
-		vTaskDelay(configTICK_RATE_HZ);
-	}
-}
-
-/* LED2 toggle thread */
-static void vLEDTask2(void *pvParameters)
-{
-	(void) pvParameters;
-
-	while (1)
-	{
-		LED_Toggle(LED2);
-		LED_Set(LED5, !LED_Test(LED2));
-		vTaskDelay(configTICK_RATE_HZ * 2);
-	}
-}
-
-/* LED6/7 toggle thread */
-static void vLEDTask3(void *pvParameters)
-{
-	(void) pvParameters;
-
-	while (1)
+	for (;;)
 	{
 		LED_Toggle(LED6);
 		LED_Set(LED7, !LED_Test(LED6));
-		vTaskDelay(configTICK_RATE_HZ / 2);
+		vTaskDelay(configTICK_RATE_HZ / 2);	/* half a second */
+		if (LED_Test(LED6))
+			uptime++;
 	}
 }
 
 /**
- * @brief	main entry point.
+ * @brief	The serial CLI task is started here.
+ * @param	pvParameters: not used.
+ */
+static void cliTask(void *pvParameters)
+{
+	(void) pvParameters;
+
+	/* disable output buffering */
+	setvbuf(stdout, NULL, _IONBF, 0);
+
+	/* launch the console */
+	for (;;)
+		theConsole();
+}
+
+/**
+ * @brief	Start the system: main entry point.
  */
 int main(void)
 {
-	prvSetupHardware();
+	SystemCoreClockUpdate();
+	Board_Init();
 
-	/* LED1 toggle thread */
-	xTaskCreate(vLEDTask1, "vTaskLed1",
-			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
+	/* create the CLI task */
+	xTaskCreate(cliTask, "cli",
+			configMINIMAL_STACK_SIZE * 5, NULL, (tskIDLE_PRIORITY + 1UL),
 			(xTaskHandle *) NULL);
 
-	/* LED2 toggle thread */
-	xTaskCreate(vLEDTask2, "vTaskLed2",
-			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
+	/* create the LEDs toggle task */
+	xTaskCreate(vLEDTask, "blinkLEDs",
+			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL),
 			(xTaskHandle *) NULL);
 
-	/* LED0 toggle thread */
-	xTaskCreate(vLEDTask0, "vTaskLed0",
-			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
-			(xTaskHandle *) NULL);
-
-	/* LED6 toggle thread */
-	xTaskCreate(vLEDTask3, "vTaskLed3",
-			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
-			(xTaskHandle *) NULL);
-
-	/* Start the scheduler */
+	/* start the scheduler */
 	vTaskStartScheduler();
 
-	/* Should never land here */
+	/* should never land here */
 	for (;;)
 		;
 }
