@@ -104,9 +104,12 @@ const cmds_t clicmds[] =
 };
 
 
-//===============================================================================
-// Returns the firmware version of the device
-//
+/**
+ * @brief	Show the firmware and hardware version.
+ * @param	argc: arguments count.
+ * @param	argv: arguments list.
+ * @return	always SUCCESS.
+ */
 int getver(int argc, char *argv[])
 {
 	(void) argc; (void) argv;
@@ -123,9 +126,12 @@ int getver(int argc, char *argv[])
 	return SUCCESS;
 }
 
-//===============================================================================
-// FreeRTOS statistics
-//
+/**
+ * @brief	System statistics.
+ * @param	argc: arguments count.
+ * @param	argv: arguments list.
+ * @return	always SUCCESS.
+ */
 static int rtosStats(int argc, char *argv[])
 {
 	char *statsBuffer;
@@ -154,11 +160,6 @@ static int rtosStats(int argc, char *argv[])
 	{
 		if (argc > 1 || !strcmp(argv[0], "-h"))
 			printf("Usage: sys\r\n");
-		else
-		{
-			g_errType = INVALID_PARAM;
-			return ERROR;
-		}
 	}
 	return SUCCESS;
 }
@@ -294,11 +295,8 @@ static int dump(int argc, char *argv[])
 	return ERROR;
 }
 
-//===============================================================================
-// Print the help command
-//
 /**
- * @brief	Print the help command.
+ * @brief	Command to print the help.
  * @param	argc: arguments count.
  * @param	argv: arguments list.
  * @return	always SUCCESS.
