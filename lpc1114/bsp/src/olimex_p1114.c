@@ -3,9 +3,27 @@
  *
  * Olimex LPC_P1114 board support package.
  *
- * (c) 2015 Lixco Microsystems <lix@paulian.net>
- *
  * Created on: 30 May 2015 (LNP)
+ *
+ * Copyright (c) 2011-2015 Lixco Microsystems <lix@paulian.net>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
 #include <stdio.h>
@@ -15,9 +33,9 @@
 #include "queue.h"
 #include "olimex_p1114.h"
 
-/* CLI serial queues size */
-#define txQueueSize 80
-#define rxQueueSize 80
+/* serial queues size */
+#define TX_QUEUE_SIZE 64
+#define RX_QUEUE_SIZE 64
 
 /* USART transmit and receive queues */
 QueueHandle_t txQueue;
@@ -25,7 +43,7 @@ QueueHandle_t rxQueue;
 
 volatile int g_Uart_Error = 0;
 
-/* System oscillator rate and clock rate on the CLKIN pin */
+/* system oscillator rate and clock rate on the CLKIN pin */
 const uint32_t OscRateIn = HSE_VALUE;
 const uint32_t ExtRateIn = 0;
 
@@ -56,7 +74,7 @@ static const pinmux_t pinmuxing[] =
 static void SystemSetupClocking(void);
 static void SystemSetupMuxing(void);
 static void LED_Init(void);
-static void UART_Init(void);
+static void UART_Init(int baudrate);
 
 /**
  * @brief	Public functions.
@@ -85,7 +103,7 @@ void Board_Init(void)
 	LED_Init();
 
 	/* Initialize the UART */
-	UART_Init();
+	UART_Init(BAUD_RATE);
 }
 
 /**
@@ -109,7 +127,7 @@ void vMainConfigureTimerForRunTimeStats(void)
 
 /**
  * @brief	Get the current value of the timer32_0.
- * @return	The current value of the timer3_0.
+ * @return	The current value of the timer32_0.
  */
 uint32_t ulMainGetRunTimeCounterValue(void)
 {
@@ -117,7 +135,7 @@ uint32_t ulMainGetRunTimeCounterValue(void)
 }
 
 /**
- * @brief	Wait until a byte is available in the FIFO of serial1.
+ * @brief	Wait until a byte is available in the FIFO of the serial interface.
  * @param	timeout: maximum time to wait for a byte. If portMAX_DELAY
  * 			is specified, the function will block.
  * @retval the character received or: EOF (-1) if none (i.e. timeout),
@@ -138,7 +156,7 @@ int getCharSerial(int timeout)
 }
 
 /**
- * @brief	Send a char via serial1 if it's not busy.
+ * @brief	Send a char through the serial interface if it's not busy.
  * @param	buff: pointer on a buffer containing the characters to be sent.
  * @param	len: number of characters to be sent.
  * @retval	Number of characters sent.
@@ -166,7 +184,7 @@ int sendCharSerial(uint8_t *buff, int len)
 }
 
 /**
- * @brief	Test if a character is pending in an input stream.
+ * @brief	Test if a character is pending in the input stream.
  * @retval	TRUE if at least a character is pending, FALSE otherwise.
  */
 int kbHit(void)
@@ -288,15 +306,25 @@ static void LED_Init(void)
 /**
  * @brief	Initialize the UART.
  */
-static void UART_Init(void)
+static void UART_Init(int baudrate)
 {
-	/* We assume that the Rx/Tx pins are already set at startup */
-	/* Setup UART for 115.2K8N1 */
+	/* we assume that the Rx/Tx pins are already set at startup */
+	/* setup UART for 115.2K, 8N1 */
 	Chip_UART_Init(LPC_USART);
 	Chip_UART_SetBaud(LPC_USART, 115200);
 	Chip_UART_ConfigData(LPC_USART, (UART_LCR_WLEN8 | UART_LCR_SBS_1BIT));
 	Chip_UART_SetupFIFOS(LPC_USART, (UART_FCR_FIFO_EN | UART_FCR_TRG_LEV2));
 	Chip_UART_TXEnable(LPC_USART);
+
+	/* create queues */
+	txQueue = xQueueCreate(TX_QUEUE_SIZE, sizeof(uint8_t));
+	rxQueue = xQueueCreate(RX_QUEUE_SIZE, sizeof(uint8_t));
+
+	/* Enable receive data and line status interrupt */
+	Chip_UART_IntEnable(LPC_USART, UART_IER_RBRINT);
+
+	/* Enable UART interrupt */
+	NVIC_EnableIRQ(UART0_IRQn);
 }
 
 /**

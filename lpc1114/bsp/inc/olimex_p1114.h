@@ -3,9 +3,10 @@
  *
  * Olimex LPC_P1114 board support package.
  *
+ * Created on: 30 May 2015 (LNP)
+ *
  * (c) 2015 Lixco Microsystems <lix@paulian.net>
  *
- * Created on: 30 May 2015 (LNP)
  */
 
 #ifndef __OLIMEX_P1114_H_
@@ -30,6 +31,7 @@
 #define MS1_DELAY			((portTickType) 1 / portTICK_RATE_MS)
 
 #define UART_ERROR (-2)
+#define BAUD_RATE 115200
 
 enum leds_t
 {
