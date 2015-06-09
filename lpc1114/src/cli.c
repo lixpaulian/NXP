@@ -59,7 +59,7 @@
 
 #define MAX_PARAMS 10			/* max number of parameters on the command line */
 
-#define CLI_BUFF 100
+#define CLI_BUFF 64
 #define STATS_BUFFER_SIZE 500
 #define NR_RECORDS 10
 
@@ -311,64 +311,63 @@ static int help(int argc, char *argv[])
 	return SUCCESS;
 }
 
-//================================================================================
-// Manage the CLI history memory
-// Params:	command (CLI_HIST_PUT, CLI_HIST_NEXT, CLI_HIST_PREV),
-//			a pointer that on successful return points to the buffer where the
-//				string has been retrieved; in case of PUT the pointer must point
-//				to the string to be stored
-// Returns:	SUCCESS if a valid record is found i.e. a record was successfully stored
-//				or ERROR otherwise
-// The CLI history structures are initialized at the first CLI_HIST_PUT command
-//
+/**
+ * @brief	Manage the CLI history memory. The CLI history structures are
+ * 			initialized at the first CLI_HIST_PUT command.
+ * @param	cmd: comamnds, can be: CLI_HIST_PUT, CLI_HIST_NEXT, CLI_HIST_PREV.
+ * @param	record: pointer on a buffer to receive from, or store to the history
+ * 			a command.
+ * @return	SUCCESS if a valid record is found i.e. a record was successfully
+ * 			stored or ERROR otherwise.
+ */
 static int cliHist(int cmd, char *record)
 {
-	static int counter = 0; // current read position on the array
-	static int load = 0;	// current save position on the array
-	int saved;
+	static int counter = 0;	/* current read position on the array */
+	static int load = 0;	/* current save position on the array */
+	int i, saved;
 	char *cpBuffer;
-	unsigned int checksum;
-	int i;
+	uint16_t checksum;
 
 	switch (cmd)
 	{
 	case CLI_HIST_PUT:
 		if (!strlen(record))
-			break; 		// empty buffer, don't store
-						// else, store buffer
+			break; 					/* empty buffer, don't store */
+									/* else, store buffer */
 		memcpy(history[load].data, record, CLI_BUFF);
 		for (i = 0, cpBuffer = history[load].data, checksum = 0;
 				i < CLI_BUFF; i++)
 			checksum += *cpBuffer++;
 		history[load].checksum = checksum;
 		if (++load >= NR_RECORDS)
-			load = 0; // overflow, reset counter
+			load = 0;				/* overflow, reset counter */
 		counter = load;
 		break;
 
 	case CLI_HIST_PREV:
 	case CLI_HIST_NEXT:
-		saved = counter;			// save counter
-		if (cmd == CLI_HIST_NEXT)	// go forwards to the newest command
+		saved = counter;			/* save counter */
+		if (cmd == CLI_HIST_NEXT)	/* go forwards to the newest command */
 		{
 			if (++counter >= NR_RECORDS)
 				counter = 0;
 		}
 		else
-		{	// go backwards to the oldest command
+		{
+			/* go backwards to the oldest command */
 			if (--counter < 0)
 				counter = NR_RECORDS - 1;
 		}
 		if (!strlen(history[counter].data) || counter == load)
-		{							// empty slot
-			counter = saved;		// restore retrieve counter
+		{							/* empty slot */
+			counter = saved;		/* restore retrieve counter */
 			break;
 		}
 		for (i = 0, cpBuffer = history[counter].data, checksum = 0;
 				i < CLI_BUFF; i++)
 			checksum += *cpBuffer++;
 		if (checksum != history[counter].checksum)
-			return ERROR; 			// invalid record
+			return ERROR; 			/* invalid record */
 		memcpy(record, history[counter].data, CLI_BUFF);
 		break;
 
@@ -378,10 +377,10 @@ static int cliHist(int cmd, char *record)
 	return SUCCESS;
 }
 
-//===============================================================================
-// Basic serial input/output routines: get a char with echo
-// Returns a char, or -1 if timeout
-//
+/**
+ * @brief	Basic serial input/output routine: get a char with echo.
+ * @return	a char, it blocks.
+ */
 static int getEcho(void)
 {
 	int c;
@@ -454,10 +453,13 @@ static int getEcho(void)
 	return c;
 }
 
-//===============================================================================
-// Basic serial input/output routines: get a whole string cr terminated, with echo
-// Returns number of characters in the buffer
-//
+/**
+ * @brief	Get a whole string  end-of-line terminated, with echo.
+ * @param	buffer: pointer on a buffer where to return the input string.
+ * @param	prompt: prompt string.
+ * @param	history: if TRUE, the string will be stored in the history.
+ * @return	number of characters returned in the buffer.
+ */
 static int getStrg(char *buffer, char *prompt, int history)
 {
 	int i, c, overflow = FALSE;
@@ -469,7 +471,7 @@ static int getStrg(char *buffer, char *prompt, int history)
 
 	while ((c = getEcho()))
 	{
-		if (c == EOF)
+		if (c == EOF)				/* unlikely to happen, kept for extensibility */
 			return EOF;
 
 		if (c == '\r' || c == '\n')
@@ -477,7 +479,7 @@ static int getStrg(char *buffer, char *prompt, int history)
 
 		switch (c)
 		{
-		case CTRL_C: /* cancel */
+		case CTRL_C:				/* cancel */
 			return CIN_CANCEL;
 
 		case CIN_UP_ARROW:
@@ -525,20 +527,23 @@ static int getStrg(char *buffer, char *prompt, int history)
 	if (g_echo)
 	{
 		if (c == '\r') 				/* complete the newline sequence */
-			printf("\n");	/* depending on what the host sent us */
+			printf("\n");			/* depending on what the host sent us */
 		else if (c == '\n')
 			printf("\r");
 	}
+
 	*buffer = '\0';					/* insert terminator */
 	if (history)
 		cliHist(CLI_HIST_PUT, p);	/* store in CLI history */
+
 	return i;
 }
 
-//===============================================================================
-// Command parsing function
-// Returns SUCCESS on normal exit (command EXIT), or ERROR if user input timed out
-//
+/**
+ * @brief	Command parsing function.
+ * @param	prompt: prompt string.
+ * @return	SUCCESS on normal exit (command EXIT).
+ */
 static int cmdParser(char *prompt)
 {
 	char buff[CLI_BUFF + 1], *pbuff;
@@ -551,22 +556,22 @@ static int cmdParser(char *prompt)
 	{
 		i = getStrg(buff, prompt, TRUE); /* get a string from user */
 
-		if (i >= CLI_BUFF) /* CLI buffer overflow? */
+		if (i >= CLI_BUFF) 	/* CLI buffer overflow? */
 		{
 			printf("\rERROR 2\r\n%s", prompt);
 			continue;
 		}
-		if (i == 0)		/* empty line? */
+		if (i == 0)			/* empty line? */
 		{
 			printf("\r\n%s", prompt);
-			continue;	/* yes, nothing to parse, go back for next command */
+			continue;		/* yes, nothing to parse, go back for next command */
 		}
 		pbuff = buff;
 		while (*pbuff != ' ' && *pbuff != '\0')
 			pbuff++;
-		*pbuff++ = '\0'; /* insert terminator */
+		*pbuff++ = '\0'; 	/* insert terminator */
 
-		result = ERROR;	/* initialize result just in case of failure */
+		result = ERROR;		/* initialize result just in case of failure */
 		g_errType = CMD_NOT_FOUND;
 
 		/* lookup in the commands table */
