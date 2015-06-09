@@ -24,7 +24,7 @@
  * THE SOFTWARE.
  */
 
-/* A minimum implementation of the stubs required by newlib */
+/* A minimum syscalls implementation required by newlib */
 
 #include <sys/types.h>
 #include <errno.h>
@@ -37,6 +37,11 @@
 int free_heap = 8192 - 1024;
 
 
+/**
+ * @brief	Return a block of RAM.
+ * @param	incr: amount of bytes to return.
+ * @return	pointer on the block of memory if SUCCESS, -1 if FAIL.
+ */
 caddr_t _sbrk(int incr)
 {
 	extern char _pvHeapStart; /* see linker definitions */
@@ -65,6 +70,13 @@ caddr_t _sbrk(int incr)
 	return (caddr_t) current_block_address;
 }
 
+/**
+ * @brief	Writes data to a file handle.
+ * @param	file: file handle (currently only stdout and stderr).
+ * @param	ptr: pointer on a block of data.
+ * @param	len: length of the block of data.
+ * @return	number of bytes written.
+ */
 int _write (int file, char *ptr, int len)
 {
 	int	n = 0;
@@ -82,6 +94,13 @@ int _write (int file, char *ptr, int len)
 	return n;
 }
 
+/**
+ * @brief	Blocking read from an input stream.
+ * @param	file: file handle to read data from (currently only stdin).
+ * @param	ptr: pointer on a buffer where to return the input data.
+ * @param	len: length of the buffer.
+ * @return	number of bytes received from the input stream.
+ */
 int _read (int file, char *ptr, int len)
 {
 	int n = 0;
@@ -103,6 +122,8 @@ int _read (int file, char *ptr, int len)
 	}
 	return n;
 }
+
+/* additional stubs required by newlib */
 
 int __attribute__((weak))
 _lseek(int file __attribute__((unused)), int ptr __attribute__((unused)),

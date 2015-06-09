@@ -44,6 +44,36 @@
 /* uptime variable */
 volatile uint32_t uptime = 0;
 
+/* forward declarations */
+static void vLEDTask(void *pvParameters);
+static void cliTask(void *pvParameters);
+
+
+/**
+ * @brief	Start the system: main entry point.
+ */
+int main(void)
+{
+	SystemCoreClockUpdate();
+	Board_Init();
+
+	/* create the CLI task */
+	xTaskCreate(cliTask, "cli",
+			configMINIMAL_STACK_SIZE * 5, NULL, (tskIDLE_PRIORITY + 1UL),
+			(xTaskHandle *) NULL);
+
+	/* create the LEDs toggle task */
+	xTaskCreate(vLEDTask, "blinkLEDs",
+			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL),
+			(xTaskHandle *) NULL);
+
+	/* start the scheduler */
+	vTaskStartScheduler();
+
+	/* should never land here */
+	for (;;)
+		;
+}
 
 /**
  * @brief	This task increments the uptime and blinks LED6 and LED7 alternatively.
@@ -77,30 +107,4 @@ static void cliTask(void *pvParameters)
 	/* launch the console */
 	for (;;)
 		theConsole();
-}
-
-/**
- * @brief	Start the system: main entry point.
- */
-int main(void)
-{
-	SystemCoreClockUpdate();
-	Board_Init();
-
-	/* create the CLI task */
-	xTaskCreate(cliTask, "cli",
-			configMINIMAL_STACK_SIZE * 5, NULL, (tskIDLE_PRIORITY + 1UL),
-			(xTaskHandle *) NULL);
-
-	/* create the LEDs toggle task */
-	xTaskCreate(vLEDTask, "blinkLEDs",
-			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL),
-			(xTaskHandle *) NULL);
-
-	/* start the scheduler */
-	vTaskStartScheduler();
-
-	/* should never land here */
-	for (;;)
-		;
 }
