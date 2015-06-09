@@ -33,6 +33,9 @@
 #include "queue.h"
 #include "olimex_p1114.h"
 
+/* CLI UART baud rate */
+#define BAUD_RATE 115200
+
 /* serial queues size */
 #define TX_QUEUE_SIZE 64
 #define RX_QUEUE_SIZE 64
@@ -86,7 +89,7 @@ static void UART_Init(int baudrate);
  */
 void SystemInit(void)
 {
-	/* Setup system clocking and muxing */
+	/* setup system clocking and pin functions */
 	SystemSetupClocking();
 	SystemSetupMuxing();
 }
@@ -96,13 +99,13 @@ void SystemInit(void)
  */
 void Board_Init(void)
 {
-	/* Initialize GPIO */
+	/* initialize GPIO */
 	Chip_GPIO_Init(LPC_GPIO);
 
-	/* Initialize LEDs */
+	/* initialize LEDs */
 	LED_Init();
 
-	/* Initialize the UART */
+	/* initialize UART */
 	UART_Init(BAUD_RATE);
 }
 
@@ -112,16 +115,16 @@ void Board_Init(void)
  */
 void vMainConfigureTimerForRunTimeStats(void)
 {
-	/* Initialize 32-bit timer 0 clock */
+	/* initialize 32-bit timer0 clock */
 	Chip_TIMER_Init(LPC_TIMER32_0);
 
-	/* Resets the timer terminal and prescale counts to 0 */
+	/* reset the timer terminal and prescale counts */
 	Chip_TIMER_Reset(LPC_TIMER32_0);
 
-	/* Setup prescale value to result in a count every 100 us */
+	/* setup prescale value to result in a count every 100 us */
 	Chip_TIMER_PrescaleSet(LPC_TIMER32_0, 5000);
 
-	/* Start timer */
+	/* start timer */
 	Chip_TIMER_Enable(LPC_TIMER32_0);
 }
 
@@ -238,40 +241,40 @@ static void SystemSetupClocking(void)
 {
 	volatile int i;
 
-	/* Power-up main oscillator */
+	/* power-up main oscillator */
 	Chip_SYSCTL_PowerUp(SYSCTL_POWERDOWN_SYSOSC_PD);
 
-	/* Wait 200us for OSC to be stabilized, no status
+	/* wait 200us for OSC to stabilize, no status
 	 indication, dummy wait. */
 	for (i = 0; i < 0x100; i++)
 		;
 
-	/* Set system PLL input to main oscillator */
+	/* set system PLL input to main oscillator */
 	Chip_Clock_SetSystemPLLSource(SYSCTL_PLLCLKSRC_MAINOSC);
 
-	/* Power down PLL to change the PLL divider ratio */
+	/* power down PLL to change the PLL divider ratio */
 	Chip_SYSCTL_PowerDown(SYSCTL_POWERDOWN_SYSPLL_PD);
 
-	/* Setup PLL for main oscillator rate (FCLKIN = 12MHz) * 4 = 48MHz
+	/* setup PLL for main oscillator rate (FCLKIN = 12MHz) * 4 = 48MHz
 	 MSEL = 3 (this is pre-decremented), PSEL = 1 (for P = 2)
 	 FCLKOUT = FCLKIN * (MSEL + 1) = 12MHz * 4 = 48MHz
 	 FCCO = FCLKOUT * 2 * P = 48MHz * 2 * 2 = 192MHz (within FCCO range) */
 	Chip_Clock_SetupSystemPLL(3, 1);
 
-	/* Powerup system PLL */
+	/* power up the system PLL */
 	Chip_SYSCTL_PowerUp(SYSCTL_POWERDOWN_SYSPLL_PD);
 
-	/* Wait for PLL to lock */
+	/* wait for PLL to lock */
 	while (!Chip_Clock_IsSystemPLLLocked())
 		;
 
-	/* Set system clock divider to 1 */
+	/* set system clock divider to 1 */
 	Chip_Clock_SetSysClockDiv(1);
 
-	/* Setup FLASH access to 3 clocks */
+	/* setup FLASH access to 3 clocks */
 	Chip_FMC_SetFLASHAccess(FLASHTIM_50MHZ_CPU);
 
-	/* Set main clock source to the system PLL. This will drive 48MHz
+	/* set main clock source to the system PLL; this will drive 48MHz
 	 for the main clock and 48MHz for the system clock */
 	Chip_Clock_SetMainClockSource(SYSCTL_MAINCLKSRC_PLLOUT);
 }
@@ -283,7 +286,7 @@ static void SystemSetupMuxing(void)
 {
 	int i;
 
-	/* Enable IOCON clock */
+	/* enable IOCON clock */
 	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_IOCON);
 
 	for (i = 0; i < (int) (sizeof(pinmuxing) / sizeof(pinmux_t)); i++)
@@ -298,7 +301,7 @@ static void SystemSetupMuxing(void)
  */
 static void LED_Init(void)
 {
-	/* Set ports PIO3_0 to PIO3_5 and PIO2_6 and PIO2_7 as outputs */
+	/* set ports PIO3_0 to PIO3_5 and PIO2_6 and PIO2_7 as outputs */
 	Chip_GPIO_SetPortDIROutput(LPC_GPIO, GPIO_PORT_3, 0x3F);
 	Chip_GPIO_SetPortDIROutput(LPC_GPIO, GPIO_PORT_2, 0xC0);
 }
@@ -311,7 +314,7 @@ static void UART_Init(int baudrate)
 	/* we assume that the Rx/Tx pins are already set at startup */
 	/* setup UART for 115.2K, 8N1 */
 	Chip_UART_Init(LPC_USART);
-	Chip_UART_SetBaud(LPC_USART, 115200);
+	Chip_UART_SetBaud(LPC_USART, baudrate);
 	Chip_UART_ConfigData(LPC_USART, (UART_LCR_WLEN8 | UART_LCR_SBS_1BIT));
 	Chip_UART_SetupFIFOS(LPC_USART, (UART_FCR_FIFO_EN | UART_FCR_TRG_LEV2));
 	Chip_UART_TXEnable(LPC_USART);
@@ -320,10 +323,10 @@ static void UART_Init(int baudrate)
 	txQueue = xQueueCreate(TX_QUEUE_SIZE, sizeof(uint8_t));
 	rxQueue = xQueueCreate(RX_QUEUE_SIZE, sizeof(uint8_t));
 
-	/* Enable receive data and line status interrupt */
+	/* enable receive data and line status interrupt */
 	Chip_UART_IntEnable(LPC_USART, UART_IER_RBRINT);
 
-	/* Enable UART interrupt */
+	/* enable UART interrupt */
 	NVIC_EnableIRQ(UART0_IRQn);
 }
 
@@ -335,19 +338,17 @@ void UART_IRQHandler(void)
 	uint8_t ch;
 	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
 
-	/* Handle transmit interrupt if enabled */
-	/* Fill FIFO */
+	/* handle transmit interrupt if enabled */
 	if (((Chip_UART_ReadLineStatus(LPC_USART) & UART_LSR_THRE) != 0) &&
 			xQueueReceiveFromISR(txQueue, &ch, &xHigherPriorityTaskWoken) == pdPASS)
 	{
 		Chip_UART_SendByte(LPC_USART, ch);
 	}
 	else
-	/* Disable transmit interrupt if the queue is empty */
+	/* disable transmit interrupt if the queue is empty */
 		Chip_UART_IntDisable(LPC_USART, UART_IER_THREINT);
 
-	/* Handle receive interrupt */
-	/* New data will be ignored if not popped in time */
+	/* handle receive interrupt */
 	while ((Chip_UART_ReadLineStatus(LPC_USART) & UART_LSR_RDR) != 0)
 	{
 		ch = Chip_UART_ReadByte(LPC_USART);

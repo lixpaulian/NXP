@@ -31,7 +31,6 @@
 #define MS1_DELAY			((portTickType) 1 / portTICK_RATE_MS)
 
 #define UART_ERROR (-2)
-#define BAUD_RATE 115200
 
 enum leds_t
 {
