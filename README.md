@@ -1,4 +1,4 @@
-##LPC1114
+# LPC1114
 
 A minimal NXP Cortex M0 platform based on the Olimex LPC-P1114 board. It is a
 playground for building simple projects in the future.
